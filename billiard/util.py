@@ -14,6 +14,8 @@ import weakref
 import atexit
 import shutil
 import tempfile
+import os
+import sys
 import threading        # we want threading to install its
                         # cleanup function before multiprocessing does
 
@@ -333,3 +335,16 @@ def _eintr_retry(func):
                 if exc.errno != errno.EINTR:
                     raise
     return wrapped
+
+
+if sys.version_info[0] == 3:
+
+    def sock_detach(sock):
+        return sock.detach()
+
+else:
+
+    def sock_detach(sock):  # noqa
+        fd = os.dup(sock.fileno())
+        sock.close()
+        return fd

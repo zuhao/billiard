@@ -46,7 +46,7 @@ import itertools
 
 import _billiard
 from . import AuthenticationError
-from .util import get_temp_dir, Finalize, sub_debug, debug
+from .util import get_temp_dir, Finalize, sub_debug, debug, sock_detach
 from .forking import duplicate, close
 from .compat import bytes
 
@@ -58,6 +58,11 @@ except NameError:
 
 # global set later
 xmlrpclib = None
+
+try:
+    from .pure import Connection
+except ImportError:
+    from _billiard import Connection
 
 
 #
@@ -216,14 +221,12 @@ if sys.platform != 'win32':
         '''
         if duplex:
             s1, s2 = socket.socketpair()
-            c1 = _billiard.Connection(os.dup(s1.fileno()))
-            c2 = _billiard.Connection(os.dup(s2.fileno()))
-            s1.close()
-            s2.close()
+            c1 = Connection(sock_detach(s1))
+            c2 = Connection(sock_detach(s2))
         else:
             fd1, fd2 = os.pipe()
-            c1 = _billiard.Connection(fd1, writable=False)
-            c2 = _billiard.Connection(fd2, readable=False)
+            c1 = Connection(fd1, writable=False)
+            c2 = Connection(fd2, readable=False)
 
         return c1, c2
 
@@ -304,7 +307,7 @@ class SocketListener(object):
     def accept(self):
         s, self._last_accepted = self._socket.accept()
         fd = duplicate(s.fileno())
-        conn = _billiard.Connection(fd)
+        conn = Connection(fd)
         s.close()
         return conn
 
@@ -336,7 +339,7 @@ def SocketClient(address):
         else:
             raise
         fd = duplicate(s.fileno())
-        return _billiard.Connection(fd)
+        return Connection(fd)
     finally:
         s.close()
 
